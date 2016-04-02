@@ -26,12 +26,64 @@
  */
 package de.lessvoid.nifty.examples.usecase;
 
+import de.lessvoid.nifty.Nifty;
 import de.lessvoid.nifty.NiftyConfiguration;
+import de.lessvoid.nifty.examples.dummy.DummyInputDevice;
+import de.lessvoid.nifty.examples.dummy.DummyRenderDevice;
+import de.lessvoid.nifty.input.lwjgl.NiftyInputDeviceLWJGL;
+import de.lessvoid.nifty.renderer.java2d.NiftyInputDeviceJava;
+import de.lessvoid.nifty.renderer.java2d.NiftyRenderDeviceJava2D;
+import de.lessvoid.nifty.time.AccurateTimeProvider;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.swing.*;
+
+import static de.lessvoid.nifty.Nifty.createNifty;
 
 public class UseCaseRunnerAdapterJava2D implements UseCaseRunnerAdapter {
+    private static Logger log = LoggerFactory.getLogger(UseCaseRunnerAdapterDummy.class.getName());
 
-  @Override
-  public void run(final Class<?> useCaseClass, final String[] args, final NiftyConfiguration niftyConfiguration) throws Exception {
-    // TODO Auto-generated method stub
-  }
+    private boolean run = true;
+
+    @Override
+    public void run(final Class<?> useCaseClass, final String[] args, final NiftyConfiguration niftyConfiguration) throws Exception {
+        // create nifty instance
+        NiftyRenderDeviceJava2D renderDeviceJava2D = new NiftyRenderDeviceJava2D();
+        //graphicsConfig
+        JFrame jf = new JFrame();
+        jf.setSize(800,600);
+        jf.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+        jf.add(renderDeviceJava2D);
+        final Nifty nifty = createNifty(
+                renderDeviceJava2D,
+                new NiftyInputDeviceJava(),
+                new AccurateTimeProvider(),
+                niftyConfiguration);
+
+        useCaseClass.getConstructor(Nifty.class).newInstance(nifty);
+
+        jf.setVisible(true);
+        nifty.update();
+        nifty.render();
+
+        logScene(nifty);
+
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+            public void run() {
+                run = false;
+            }
+        });
+
+        while (run) {
+            nifty.update();
+            nifty.render();
+        }
+
+    }
+
+    private void logScene(final Nifty nifty) {
+        log.info(nifty.getSceneInfoLog());
+    }
+
 }

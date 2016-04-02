@@ -26,154 +26,225 @@
  */
 package de.lessvoid.nifty.renderer.java2d;
 
+import java.awt.*;
+import java.awt.geom.GeneralPath;
+import java.awt.geom.Line2D;
+import java.awt.image.BufferedImage;
+import java.awt.image.VolatileImage;
+import java.io.IOException;
+import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
+import de.lessvoid.nifty.types.NiftyColor;
 import de.lessvoid.nifty.types.NiftyCompositeOperation;
 import de.lessvoid.nifty.types.NiftyLineCapType;
 import de.lessvoid.nifty.types.NiftyLineJoinType;
 import de.lessvoid.niftyinternal.NiftyResourceLoader;
 import de.lessvoid.nifty.spi.NiftyRenderDevice;
 import de.lessvoid.nifty.spi.NiftyTexture;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-public class NiftyRenderDeviceJava2D implements NiftyRenderDevice {
+import javax.imageio.ImageIO;
 
-  @Override
-  public void setResourceLoader(NiftyResourceLoader niftyResourceLoader) {
-    // TODO Auto-generated method stub
-    
-  }
+public class NiftyRenderDeviceJava2D extends Canvas implements NiftyRenderDevice {
+    private static Logger Log = LoggerFactory.getLogger(NiftyRenderDeviceJava2D.class.getName());
+    private NiftyResourceLoader niftyResourceLoader;
+    private boolean clearScreenBeforeRender;
+    private List<NiftyTexture> textureBuffer = Collections.synchronizedList(new ArrayList<NiftyTexture>());
+    private List<FloatBuffer> verticesBuffer = Collections.synchronizedList(new ArrayList<FloatBuffer>());
+    private List<GradientQuad> gradientQuadBuffer = Collections.synchronizedList(new ArrayList<GradientQuad>());
 
-  @Override
-  public int getDisplayWidth() {
-    // TODO Auto-generated method stub
-    return 0;
-  }
+    public NiftyRenderDeviceJava2D() {
+    }
 
-  @Override
-  public int getDisplayHeight() {
-    // TODO Auto-generated method stub
-    return 0;
-  }
+    public NiftyRenderDeviceJava2D(GraphicsConfiguration config) {
+        super(config);
+    }
 
-  @Override
-  public void clearScreenBeforeRender(boolean clearScreenBeforeRender) {
-    // TODO Auto-generated method stub
-    
-  }
+    @Override
+    public void setResourceLoader(NiftyResourceLoader niftyResourceLoader) {
+        this.niftyResourceLoader = niftyResourceLoader;
+    }
 
-  @Override
-  public NiftyTexture createTexture(int width, int height, FilterMode filterMode) {
-    // TODO Auto-generated method stub
-    return null;
-  }
+    @Override
+    public int getDisplayWidth() {
+        return getWidth();
+    }
 
-  @Override
-  public NiftyTexture createTexture(int width, int height, ByteBuffer data, FilterMode filterMode) {
-    // TODO Auto-generated method stub
-    return null;
-  }
+    @Override
+    public int getDisplayHeight() {
+        return getHeight();
+    }
 
-  @Override
-  public
-      NiftyTexture
-      loadTexture(String filename, FilterMode filterMode, PreMultipliedAlphaMode preMultipliedAlphaMode) {
-    // TODO Auto-generated method stub
-    return null;
-  }
+    @Override
+    public void clearScreenBeforeRender(boolean clearScreenBeforeRender) {
+        this.clearScreenBeforeRender = clearScreenBeforeRender;
+    }
 
-  @Override
-  public void beginRender() {
-    // TODO Auto-generated method stub
-    
-  }
+    @Override
+    public void beginRender() {
+        Log.trace("beginRender " + "");
+        /*setIgnoreRepaint(false);*/
+    }
 
-  @Override
-  public void renderTexturedQuads(NiftyTexture texture, FloatBuffer vertices) {
-    // TODO Auto-generated method stub
-    
-  }
+    @Override
+    public void endRender() {
+        Log.trace("endRender " + "");
+        /*setIgnoreRepaint(true);*/
+    }
 
-  @Override
-  public void renderColorQuads(FloatBuffer vertices) {
-    // TODO Auto-generated method stub
-    
-  }
+    @Override
+    public NiftyTexture createTexture(int width, int height, FilterMode filterMode) {
+        Log.info("createTexture " + "width = [" + width + "], height = [" + height + "], filterMode = [" + filterMode + "]");
+        return new NiftyTextureVolatileImage(width, height, filterMode, super.getGraphicsConfiguration());
+    }
 
-  @Override
-  public void renderLinearGradientQuads(
-      double x0,
-      double y0,
-      double x1,
-      double y1,
-      List<ColorStop> colorStops,
-      FloatBuffer vertices) {
-    // TODO Auto-generated method stub
-  }
+    @Override
+    public NiftyTexture createTexture(int width, int height, ByteBuffer data, FilterMode filterMode) {
+        Log.info("createTexture " + "width = [" + width + "], height = [" + height + "], data = [" + data + "], filterMode = [" + filterMode + "]");
+        return new NiftyTextureVolatileImage(width, height, data, filterMode, super.getGraphicsConfiguration());
+    }
 
-  @Override
-  public void endRender() {
-    // TODO Auto-generated method stub
-    
-  }
+    @Override
+    public NiftyTexture loadTexture(String filename, FilterMode filterMode, PreMultipliedAlphaMode preMultipliedAlphaMode) {
+        Log.info("loadTexture " + "filename = [" + filename + "], filterMode = [" + filterMode + "], preMultipliedAlphaMode = [" + preMultipliedAlphaMode + "]");
+        try {
+            if (filename != null) {
+                URL resource = niftyResourceLoader.getResource(filename);
+                if (resource != null) {
+                    NiftyTextureVolatileImage image = NiftyTextureVolatileImage.fromBufferedImage(ImageIO.read(resource), super.getGraphicsConfiguration());
+                    image.setFilterMode(filterMode);
+                }
+            }
+        } catch (IOException | AWTException e) {
+            Log.warn("", e);
+        }
+        return null;
+    }
 
-  @Override
-  public void beginRenderToTexture(NiftyTexture texture) {
-    // TODO Auto-generated method stub
-    
-  }
+    @Override
+    public void renderTexturedQuads(NiftyTexture texture, FloatBuffer vertices) {
+        Log.info("renderTexturedQuads " + "texture = [" + texture + "], vertices = [" + vertices + "]");
+        textureBuffer.add(texture);
+        verticesBuffer.add(vertices);
+        revalidate();
+        repaint();
+    }
 
-  @Override
-  public void endRenderToTexture(NiftyTexture texture) {
-    // TODO Auto-generated method stub
-    
-  }
+    @Override
+    public void renderColorQuads(FloatBuffer vertices) {
+        Log.info("renderColorQuads " + "vertices = [" + vertices + "]");
+        verticesBuffer.add(vertices);
+        revalidate();
+        repaint();
+    }
 
-  @Override
-  public void maskBegin() {
+    @Override
+    public void renderLinearGradientQuads(double x0, double y0, double x1, double y1, List<ColorStop> colorStops, FloatBuffer vertices) {
+        Log.info("renderLinearGradientQuads " + "x0 = [" + x0 + "], y0 = [" + y0 + "], x1 = [" + x1 + "], y1 = [" + y1 + "], colorStops = [" + colorStops + "], vertices = [" + vertices + "]");
+        if (colorStops.size() >= 2) {//TODO: multicolor
+            GradientPaint gradientPaint = new GradientPaint((float) x0, (float) y0, niftyColorToAWTColor(colorStops.get(0).getColor()), (float) x1, (float) y1, niftyColorToAWTColor(colorStops.get(1).getColor()));
+            gradientQuadBuffer.add(new GradientQuad(gradientPaint, vertices));
+        }
+        revalidate();
+        repaint();
+    }
 
-  }
+    @Override
+    public void beginRenderToTexture(NiftyTexture texture) {
+        Log.info("beginRenderToTexture " + "texture = [" + texture + "]");
+    }
 
-  @Override
-  public void maskEnd() {
+    @Override
+    public void endRenderToTexture(NiftyTexture texture) {
+        Log.info("endRenderToTexture " + "texture = [" + texture + "]");
+    }
 
-  }
+    @Override
+    public void maskBegin() {
+        Log.info("maskBegin " + "");
+    }
 
-  @Override
-  public void maskClear() {
-    // TODO Auto-generated method stub
-    
-  }
+    @Override
+    public void maskEnd() {
+        Log.info("maskEnd " + "");
+    }
 
-  @Override
-  public void changeCompositeOperation(NiftyCompositeOperation compositeOperation) {
-    // TODO Auto-generated method stub
-    
-  }
+    @Override
+    public void maskClear() {
+        Log.info("maskClear " + "");
+    }
 
-  @Override
-  public String loadCustomShader(String filename) {
-    // TODO Auto-generated method stub
-    return null;
-  }
+    @Override
+    public void changeCompositeOperation(NiftyCompositeOperation compositeOperation) {
+        Log.info("changeCompositeOperation " + "compositeOperation = [" + compositeOperation + "]");
+    }
 
-  @Override
-  public void activateCustomShader(String shaderId) {
-    // TODO Auto-generated method stub
-    
-  }
+    @Override
+    public String loadCustomShader(String filename) {
+        Log.info("loadCustomShader " + "filename = [" + filename + "]");
+        return null;
+    }
 
-  @Override
-  public void maskRenderLines(FloatBuffer b, float lineWidth, NiftyLineCapType lineCapType, NiftyLineJoinType lineJoinType) {
-    // TODO Auto-generated method stub
-    
-  }
+    @Override
+    public void activateCustomShader(String shaderId) {
+        Log.info("activateCustomShader " + "shaderId = [" + shaderId + "]");
+    }
 
-  @Override
-  public void maskRenderFill(FloatBuffer vertices) {
-    // TODO Auto-generated method stub
-    
-  }
+    @Override
+    public void maskRenderLines(FloatBuffer b, float lineWidth, NiftyLineCapType lineCapType, NiftyLineJoinType lineJoinType) {
+        Log.info("maskRenderLines " + "b = [" + b + "], lineWidth = [" + lineWidth + "], lineCapType = [" + lineCapType + "], lineJoinType = [" + lineJoinType + "]");
+    }
 
+    @Override
+    public void maskRenderFill(FloatBuffer vertices) {
+        Log.info("maskRenderFill " + "vertices = [" + vertices + "]");
+    }
+
+    @Override
+    public void paint(Graphics g) {
+        super.paint(g);
+        Log.info("paint " + "g = [" + g + "]");
+        Graphics2D g2d = (Graphics2D) g;
+        if (clearScreenBeforeRender) {
+            g2d.fillRect(0, 0, getWidth(), getHeight());
+        }
+        for (NiftyTexture niftyTexture : textureBuffer) {
+            niftyTexture.saveAsPng("niftyTexture");
+            internal(niftyTexture).paint(g2d);
+        }
+        for (GradientQuad gradientQuad : gradientQuadBuffer) {
+            gradientQuad.paint(g2d);
+        }
+
+        //textureBuffer.clear();
+    }
+
+    private NiftyTextureVolatileImage internal(final NiftyTexture texture) {
+        return (NiftyTextureVolatileImage) texture;
+    }
+
+    public Color niftyColorToAWTColor(NiftyColor niftyColor) {
+        return new Color((float) niftyColor.getRed(), (float) niftyColor.getGreen(), (float) niftyColor.getBlue(), (float) niftyColor.getAlpha());
+    }
+
+    public static void drawVertices(FloatBuffer vertices, Graphics2D g2d) {
+        vertices.flip();
+        GeneralPath path = new GeneralPath();
+        float[] array = vertices.array();
+        for (int i = 0; i < array.length; i += 2) {
+            if (i == 0) {
+                path.moveTo(array[i], array[i + 1]);
+            } else {
+                path.lineTo(array[i], array[i + 1]);
+            }
+        }
+        path.closePath();
+        g2d.draw(path);
+    }
 }
