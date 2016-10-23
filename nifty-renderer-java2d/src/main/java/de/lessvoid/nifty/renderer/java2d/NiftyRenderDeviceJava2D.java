@@ -36,6 +36,7 @@ import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -46,28 +47,30 @@ import de.lessvoid.nifty.types.NiftyLineJoinType;
 import de.lessvoid.niftyinternal.NiftyResourceLoader;
 import de.lessvoid.nifty.spi.NiftyRenderDevice;
 import de.lessvoid.nifty.spi.NiftyTexture;
+import de.lessvoid.niftyinternal.render.batch.TextureBatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
 import javax.imageio.ImageIO;
 
 public class NiftyRenderDeviceJava2D extends Canvas implements NiftyRenderDevice {
     private static Logger Log = LoggerFactory.getLogger(NiftyRenderDeviceJava2D.class.getName());
     private NiftyResourceLoader niftyResourceLoader;
     private boolean clearScreenBeforeRender;
-    private List<NiftyTexture> textureBuffer = Collections.synchronizedList(new ArrayList<NiftyTexture>());
+    private NiftyCompositeOperation compositeOperation;
+    private VolatileImage offscreen;
+/*    private List<NiftyTexture> textureBuffer = Collections.synchronizedList(new ArrayList<NiftyTexture>());
     private List<FloatBuffer> verticesBuffer = Collections.synchronizedList(new ArrayList<FloatBuffer>());
-    private List<GradientQuad> gradientQuadBuffer = Collections.synchronizedList(new ArrayList<GradientQuad>());
-
-    public NiftyRenderDeviceJava2D() {
-    }
+    private List<GradientQuad> gradientQuadBuffer = Collections.synchronizedList(new ArrayList<GradientQuad>());*/
 
     public NiftyRenderDeviceJava2D(GraphicsConfiguration config) {
         super(config);
+        offscreen = config.createCompatibleVolatileImage((int) config.getBounds().getWidth(), (int) config.getBounds().getHeight());
     }
 
     @Override
-    public void setResourceLoader(NiftyResourceLoader niftyResourceLoader) {
+    public void setResourceLoader(@Nonnull NiftyResourceLoader niftyResourceLoader) {
         this.niftyResourceLoader = niftyResourceLoader;
     }
 
@@ -88,14 +91,19 @@ public class NiftyRenderDeviceJava2D extends Canvas implements NiftyRenderDevice
 
     @Override
     public void beginRender() {
-        Log.trace("beginRender " + "");
-        /*setIgnoreRepaint(false);*/
+        Log.info("beginRender " + "");
+
+        if (clearScreenBeforeRender) {
+            Graphics2D graphics2D = offscreen.createGraphics();
+            graphics2D.fillRect(0, 0, getWidth(), getHeight());
+        }
+
+        changeCompositeOperation(NiftyCompositeOperation.SourceOver);
     }
 
     @Override
     public void endRender() {
-        Log.trace("endRender " + "");
-        /*setIgnoreRepaint(true);*/
+        Log.info("endRender " + "");
     }
 
     @Override
@@ -130,8 +138,9 @@ public class NiftyRenderDeviceJava2D extends Canvas implements NiftyRenderDevice
     @Override
     public void renderTexturedQuads(NiftyTexture texture, FloatBuffer vertices) {
         Log.info("renderTexturedQuads " + "texture = [" + texture + "], vertices = [" + vertices + "]");
-        textureBuffer.add(texture);
-        verticesBuffer.add(vertices);
+        Graphics2D graphics2D = offscreen.createGraphics();
+        internal(texture).paint(graphics2D);
+        drawVertices(vertices, graphics2D);
         revalidate();
         repaint();
     }
@@ -139,7 +148,7 @@ public class NiftyRenderDeviceJava2D extends Canvas implements NiftyRenderDevice
     @Override
     public void renderColorQuads(FloatBuffer vertices) {
         Log.info("renderColorQuads " + "vertices = [" + vertices + "]");
-        verticesBuffer.add(vertices);
+        drawVertices(vertices, offscreen.createGraphics());
         revalidate();
         repaint();
     }
@@ -149,7 +158,7 @@ public class NiftyRenderDeviceJava2D extends Canvas implements NiftyRenderDevice
         Log.info("renderLinearGradientQuads " + "x0 = [" + x0 + "], y0 = [" + y0 + "], x1 = [" + x1 + "], y1 = [" + y1 + "], colorStops = [" + colorStops + "], vertices = [" + vertices + "]");
         if (colorStops.size() >= 2) {//TODO: multicolor
             GradientPaint gradientPaint = new GradientPaint((float) x0, (float) y0, niftyColorToAWTColor(colorStops.get(0).getColor()), (float) x1, (float) y1, niftyColorToAWTColor(colorStops.get(1).getColor()));
-            gradientQuadBuffer.add(new GradientQuad(gradientPaint, vertices));
+            new GradientQuad(gradientPaint, vertices).paint(offscreen.createGraphics());
         }
         revalidate();
         repaint();
@@ -158,6 +167,7 @@ public class NiftyRenderDeviceJava2D extends Canvas implements NiftyRenderDevice
     @Override
     public void beginRenderToTexture(NiftyTexture texture) {
         Log.info("beginRenderToTexture " + "texture = [" + texture + "]");
+        internal(texture).paint(offscreen.createGraphics());
     }
 
     @Override
@@ -182,6 +192,7 @@ public class NiftyRenderDeviceJava2D extends Canvas implements NiftyRenderDevice
 
     @Override
     public void changeCompositeOperation(NiftyCompositeOperation compositeOperation) {
+        this.compositeOperation = compositeOperation;
         Log.info("changeCompositeOperation " + "compositeOperation = [" + compositeOperation + "]");
     }
 
@@ -211,7 +222,10 @@ public class NiftyRenderDeviceJava2D extends Canvas implements NiftyRenderDevice
         super.paint(g);
         Log.info("paint " + "g = [" + g + "]");
         Graphics2D g2d = (Graphics2D) g;
-        if (clearScreenBeforeRender) {
+        if (offscreen != null) {
+            g2d.drawImage(offscreen, 0, 0, null);
+        }
+        /*if (clearScreenBeforeRender) {
             g2d.fillRect(0, 0, getWidth(), getHeight());
         }
         for (NiftyTexture niftyTexture : textureBuffer) {
@@ -220,7 +234,7 @@ public class NiftyRenderDeviceJava2D extends Canvas implements NiftyRenderDevice
         }
         for (GradientQuad gradientQuad : gradientQuadBuffer) {
             gradientQuad.paint(g2d);
-        }
+        }*/
 
         //textureBuffer.clear();
     }
@@ -234,15 +248,16 @@ public class NiftyRenderDeviceJava2D extends Canvas implements NiftyRenderDevice
     }
 
     public static void drawVertices(FloatBuffer vertices, Graphics2D g2d) {
+        float[] buf = new float[vertices.position() / TextureBatch.PRIMITIVE_SIZE * 6];
         vertices.flip();
         GeneralPath path = new GeneralPath();
-        float[] array = vertices.array();
-        for (int i = 0; i < array.length; i += 2) {
-            if (i == 0) {
-                path.moveTo(array[i], array[i + 1]);
-            } else {
-                path.lineTo(array[i], array[i + 1]);
-            }
+        vertices.get(buf);
+        Log.info(Arrays.toString(buf));
+        path.moveTo(buf[0], buf[1]);
+        while (vertices.hasRemaining()) {
+            vertices.get(buf);
+            Log.info(Arrays.toString(buf));
+            path.lineTo(buf[0], buf[1]);
         }
         path.closePath();
         g2d.draw(path);

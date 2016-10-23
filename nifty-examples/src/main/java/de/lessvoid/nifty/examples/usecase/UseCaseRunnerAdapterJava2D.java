@@ -39,6 +39,8 @@ import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 
+import java.awt.*;
+
 import static de.lessvoid.nifty.Nifty.createNifty;
 
 public class UseCaseRunnerAdapterJava2D implements UseCaseRunnerAdapter {
@@ -49,10 +51,17 @@ public class UseCaseRunnerAdapterJava2D implements UseCaseRunnerAdapter {
     @Override
     public void run(final Class<?> useCaseClass, final String[] args, final NiftyConfiguration niftyConfiguration) throws Exception {
         // create nifty instance
-        NiftyRenderDeviceJava2D renderDeviceJava2D = new NiftyRenderDeviceJava2D();
+        GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+        for (GraphicsDevice device : ge.getScreenDevices()) {
+            log.warn(device + "");
+            for (GraphicsConfiguration configuration : device.getConfigurations()) {
+                log.warn("\t" + configuration);
+            }
+        }
+        NiftyRenderDeviceJava2D renderDeviceJava2D = new NiftyRenderDeviceJava2D(ge.getDefaultScreenDevice().getDefaultConfiguration());
         //graphicsConfig
         JFrame jf = new JFrame();
-        jf.setSize(800,600);
+        jf.setSize(800, 600);
         jf.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         jf.add(renderDeviceJava2D);
         final Nifty nifty = createNifty(

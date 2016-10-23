@@ -225,7 +225,7 @@ public class NiftyRenderDeviceOpenGL implements NiftyRenderDevice {
 
   @Override
   public void beginRender() {
-    log.trace("beginRender()");
+    log.info("beginRender()");
 
     if (clearScreenOnRender) {
       gl.glClearColor(0.f, 0.f, 0.f, 1.f);
@@ -238,7 +238,7 @@ public class NiftyRenderDeviceOpenGL implements NiftyRenderDevice {
 
   @Override
   public void endRender() {
-    log.trace("endRender()");
+    log.info("endRender()");
     int error = gl.glGetError();
     if (error != gl.GL_NO_ERROR()) {
       log.error("glGetError(): {}", error);
@@ -250,7 +250,7 @@ public class NiftyRenderDeviceOpenGL implements NiftyRenderDevice {
       final int width,
       final int height,
       final FilterMode filterMode) {
-    log.trace("createTexture()");
+    log.info("createTexture()");
     return NiftyTextureOpenGL.newNiftyTextureOpenGL(gl, width, height, filterMode);
   }
 
@@ -260,7 +260,7 @@ public class NiftyRenderDeviceOpenGL implements NiftyRenderDevice {
       final int height,
       final ByteBuffer data,
       final FilterMode filterMode) {
-    log.trace("createTexture()");
+    log.info("createTexture()");
     return NiftyTextureOpenGL.newNiftyTextureOpenGL(gl, width, height, data, filterMode);
   }
 
@@ -269,13 +269,13 @@ public class NiftyRenderDeviceOpenGL implements NiftyRenderDevice {
       final String filename,
       final FilterMode filterMode,
       final PreMultipliedAlphaMode preMultipliedAlphaMode) {
-    log.trace("loadTexture()");
+    log.info("loadTexture()");
     return NiftyTextureOpenGL.newNiftyTextureOpenGL(gl, resourceLoader, filename, filterMode, preMultipliedAlphaMode);
   }
 
   @Override
   public void renderTexturedQuads(final NiftyTexture texture, final FloatBuffer vertices) {
-    log.trace("renderTexturedQuads()");
+    log.info("renderTexturedQuads()");
     vertices.flip();
 
     FloatBuffer b = vboVertexUVColor.getBuffer();
@@ -294,7 +294,7 @@ public class NiftyRenderDeviceOpenGL implements NiftyRenderDevice {
 
   @Override
   public void renderColorQuads(final FloatBuffer vertices) {
-    log.trace("renderColorQuads()");
+    log.info("renderColorQuads()");
     vertices.flip();
 
     FloatBuffer b = vboVertexColor.getBuffer();
@@ -311,7 +311,7 @@ public class NiftyRenderDeviceOpenGL implements NiftyRenderDevice {
 
   @Override
   public void renderLinearGradientQuads(final double x0, final double y0, final double x1, final double y1, final List<ColorStop> colorStops, final FloatBuffer vertices) {
-    log.trace("renderLinearGradientQuads()");
+    log.info("renderLinearGradientQuads()");
     vertices.flip();
 
     FloatBuffer b = vboVertex.getBuffer();
@@ -345,7 +345,7 @@ public class NiftyRenderDeviceOpenGL implements NiftyRenderDevice {
 
   @Override
   public void beginRenderToTexture(final NiftyTexture texture) {
-    log.trace("beginRenderToTexture()");
+    log.info("beginRenderToTexture()");
     fbo.bindFramebuffer();
     fbo.attachTexture(getTextureId(texture), 0);
     gl.glViewport(0, 0, texture.getWidth(), texture.getHeight());
@@ -355,7 +355,7 @@ public class NiftyRenderDeviceOpenGL implements NiftyRenderDevice {
 
   @Override
   public void endRenderToTexture(final NiftyTexture texture) {
-    log.trace("endRenderToTexture()");
+    log.info("endRenderToTexture()");
     fbo.disableAndResetViewport(getDisplayWidth(), getDisplayHeight());
     mvp(getDisplayWidth(), getDisplayHeight());
     currentFBO = null;
@@ -363,7 +363,7 @@ public class NiftyRenderDeviceOpenGL implements NiftyRenderDevice {
 
   @Override
   public void maskBegin() {
-    log.trace("maskBegin()");
+    log.info("maskBegin()");
     pathFBO.bindFramebuffer();
     gl.glViewport(0, 0, pathTexture.getWidth(), pathTexture.getHeight());
     mvpFlipped(pathTexture.getWidth(), pathTexture.getHeight());
@@ -371,7 +371,7 @@ public class NiftyRenderDeviceOpenGL implements NiftyRenderDevice {
 
   @Override
   public void maskEnd() {
-    log.trace("maskEnd()");
+    log.info("maskEnd()");
 
     // Third Pass
     //
@@ -433,7 +433,7 @@ public class NiftyRenderDeviceOpenGL implements NiftyRenderDevice {
 
   @Override
   public void maskClear() {
-    log.trace("maskClear()");
+    log.info("maskClear()");
     gl.glClearColor(0.f, 0.f, 0.f, 0.f);
     gl.glClear(gl.GL_COLOR_BUFFER_BIT());
   }
@@ -444,7 +444,7 @@ public class NiftyRenderDeviceOpenGL implements NiftyRenderDevice {
     final float lineWidth,
     final NiftyLineCapType lineCapType,
     final NiftyLineJoinType lineJoinType) {
-    log.trace("maskRenderLines()");
+    log.info("maskRenderLines()");
 
     vertices.flip();
 
@@ -481,7 +481,7 @@ public class NiftyRenderDeviceOpenGL implements NiftyRenderDevice {
 
   @Override
   public void maskRenderFill(final FloatBuffer vertices) {
-    log.trace("maskRenderFill()");
+    log.info("maskRenderFill()");
 
     // set up the shader
     activateShader(FILL_ALPHA_SHADER);
@@ -518,7 +518,7 @@ public class NiftyRenderDeviceOpenGL implements NiftyRenderDevice {
 
   @Override
   public String loadCustomShader(final String filename) {
-    log.trace("loadCustomShader()");
+    log.info("loadCustomShader()");
     CoreShader shader = CoreShader.createShaderWithVertexAttributes(gl, "aVertex");
     shader.vertexShader("de/lessvoid/nifty/renderer/lwjgl/custom.vs");
     shader.fragmentShader(filename);
@@ -531,7 +531,7 @@ public class NiftyRenderDeviceOpenGL implements NiftyRenderDevice {
 
   @Override
   public void activateCustomShader(final String shaderId) {
-    log.trace("activateCustomShader()");
+    log.info("activateCustomShader()");
 
     CoreShader shader = activateShader(shaderId);
     shader.setUniformf("time", (System.nanoTime() - beginTime) / NANO_TO_MS_CONVERSION / 1000.f);
@@ -552,7 +552,7 @@ public class NiftyRenderDeviceOpenGL implements NiftyRenderDevice {
   @Override
   public void changeCompositeOperation(final NiftyCompositeOperation compositeOperation) {
     if (log.isTraceEnabled()) {
-      log.trace("changeCompositeOperation(" + compositeOperation + ")");
+      log.info("changeCompositeOperation(" + compositeOperation + ")");
     }
     switch (compositeOperation) {
       case Clear:
